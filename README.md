@@ -4,6 +4,8 @@ Um quebra-cabeça sobre construir redes de ressonância: arraste sinos, conecte-
 
 Feito inteiramente em **HTML5 Canvas + JavaScript puro** — um único arquivo, zero dependências, zero build step.
 
+> 🚧 **Projeto pessoal em desenvolvimento ativo.** Fases, mecânicas e visual ainda mudam com frequência — o que está aqui é um retrato do estado atual, não um produto fechado.
+
 <p align="center">
   <img src="docs/screenshot-title.png" width="46%" alt="Tela de título do Sonare">
   <img src="docs/screenshot-gameplay.png" width="46%" alt="Fase do Sonare em andamento">
@@ -31,6 +33,13 @@ Alguns problemas específicos que valeram a pena resolver neste projeto:
 - **Cabo de conexão como onda sonora real.** A animação do vínculo entre sinos é uma senoide cujo comprimento de onda vem da frequência musical real de cada sino (`grave1` = 130.81 Hz / C3 … `aguda` = 329.63 Hz / E4) — não é decoração, é o dado do próprio sino.
 - **Grade fina de posicionamento.** Sinos se movem numa subdivisão de 5× a grade de obstáculos do mapa, com colisão por distância real (raio a raio) em vez de célula exata — o suficiente pra parecer posicionamento livre sem perder o sistema de contagem de movimentos que sustenta as estrelas.
 - **Um arquivo, dois builds.** `Sonare.html` é a versão de produção (progressão sequencial, economia real); o projeto também mantém internamente uma build de teste com tudo desbloqueado, usada durante o desenvolvimento pra validar fases rapidamente.
+
+## Principais decisões (e o que aprendi construindo)
+
+- **Balancear dificuldade não é só matemática.** Pra garantir que a meta de 3 estrelas de cada fase fosse sempre alcançável, cada uma precisou ser validada por um solver de força bruta (`solver.js`) em vez de confiar no "parece certo" — aprendi a desconfiar da própria intuição quando dá pra provar algo com código.
+- **Uma mecânica pode "funcionar" e ainda estar conceitualmente errada.** O Sino Mestre começou como um detalhe decorativo: qualquer sino na linha de base contava como "conectado", o mestre não servia pra nada além de decoração. Só ficou claro que isso esvaziava o propósito dele depois de jogar várias fases seguidas. Refazer essa mecânica no meio do projeto sem quebrar as 19 fases já validadas foi a parte mais trabalhosa até agora — e a que mais ensinou sobre mexer em fundação depois que já tem conteúdo em cima.
+- **"Tecnicamente correto" não é o mesmo que "comunica a ideia".** A animação do cabo de conexão é uma senoide de verdade, com comprimento de onda calculado a partir da frequência musical real de cada sino — mas isso sozinho não fazia a ligação parecer som. Levou várias rodadas comparando variações lado a lado até achar uma versão que realmente lesse como som, não só como matemática certa.
+- **Restrição também é design.** Quando posicionar os sinos livremente virou um pedido recorrente, a resposta não foi tirar a grade — foi deixá-la mais fina. Manter alguma estrutura discreta era o que sustentava o sistema de contagem de movimentos (e as estrelas) continuar fazendo sentido.
 
 ## Rodando localmente
 
