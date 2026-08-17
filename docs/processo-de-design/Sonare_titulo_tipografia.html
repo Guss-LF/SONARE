@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sonare — tipografia do nome</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#03060f;color:#eef1f6;
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1100px;margin:0 auto;padding:48px 24px 100px}
+  h1{font-weight:200;font-size:26px;letter-spacing:.1em;margin:0 0 6px}
+  .sub{font-size:13px;color:rgba(238,241,246,.5);font-weight:300;margin:0 0 46px;max-width:64ch;line-height:1.6}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:28px}
+  .card{background:#050810;border:1px solid rgba(238,241,246,.12);border-radius:2px;overflow:hidden}
+  .rec{border-color:rgba(255,176,32,.5)}
+  .card-head{padding:16px 18px 10px;display:flex;align-items:baseline;gap:10px}
+  .card-name{font-size:14px;font-weight:500;letter-spacing:.02em}
+  .card-tag{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#ffb020;
+    border:1px solid rgba(255,176,32,.5);padding:2px 7px;border-radius:10px}
+  .card-desc{font-size:11.5px;color:rgba(238,241,246,.5);font-weight:300;line-height:1.55;margin-top:6px;padding:0 18px 14px}
+  .frame{width:100%;aspect-ratio:480/760;position:relative}
+  canvas{width:100%;height:100%;display:block}
+  footer{margin-top:50px;padding-top:20px;border-top:1px solid rgba(238,241,246,.12);
+    font-size:11px;color:rgba(238,241,246,.32);font-weight:300;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>O NOME "SONARE" — 3 TRATAMENTOS</h1>
+  <p class="sub">Layout A (o que você aprovou) com o wordmark redesenhado três formas diferentes. Continua sendo texto real (legível, sem risco de virar ilegível), mas cada letra agora tem posição própria — não é mais um <span style="font-family:monospace">ctx.fillText</span> genérico.</p>
+
+  <div class="grid">
+    <div class="card rec">
+      <div class="card-head"><span class="card-name">Partitura</span><span class="card-tag">recomendado</span></div>
+      <p class="card-desc">SONARE escrito sobre uma pauta de verdade — 5 linhas finas atravessando o nome, cada letra pousada numa altura diferente, como se fosse a melodia do próprio nome do jogo. É o mais literal com "sentido de nota".</p>
+      <div class="frame"><canvas id="cv-partitura" width="480" height="760"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-name">Onda</span></div>
+      <p class="card-desc">As letras cavalgam uma onda que viaja pelo nome continuamente, com um traço fino costurando todas elas por baixo — o nome vira literalmente uma onda sonora, e o traço ecoa a mecânica de "uma corrente só" do jogo.</p>
+      <div class="frame"><canvas id="cv-onda" width="480" height="760"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-name">Sequência</span></div>
+      <p class="card-desc">Posição normal, bem estável e legível — mas cada letra acende em sequência, da esquerda pra direita, como se o próprio nome fosse tocado feito um carrilhão. O mais discreto dos três.</p>
+      <div class="frame"><canvas id="cv-sequencia" width="480" height="760"></canvas></div>
+    </div>
+  </div>
+
+  <footer>Todas em canvas ao vivo. As letras são desenhadas uma a uma (não é mais uma chamada só de texto) — o que abre caminho pra, no futuro, trocar por um logotipo 100% vetorial se topar ir mais longe ainda.</footer>
+</div>
+
+<script>
+'use strict';
+const hex2rgb=h=>{h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.substr(i,2),16));};
+const rgba=(h,a)=>{const c=hex2rgb(h);return`rgba(${c[0]},${c[1]},${c[2]},${a})`;};
+const W=480,H=760,CX=W/2;
+const IDENT={grave1:'#3D7BFF',grave2:'#9B5CFF',media1:'#23D6A0',media2:'#FFB020',aguda:'#FF3B4E'};
+const ACCENT='#E8A23C';
+const BASE='#03060f', NEB=['#0a1836','#102a52','#050a1c','#16407a'];
+
+function txt(ctx,s,x,y,size,col,al,sp,weight){
+  ctx.save();
+  ctx.font=(weight||300)+' '+size+'px "Helvetica Neue",Helvetica,Arial,sans-serif';
+  try{ctx.letterSpacing=(sp||0)+'px';}catch(e){}
+  ctx.textAlign=al||'center'; ctx.textBaseline='middle'; ctx.fillStyle=col;
+  ctx.fillText(s,x,y); ctx.restore();
+}
+function ring(ctx,x,y,r,a,w,col){ctx.save();ctx.strokeStyle=rgba(col||'#ffffff',a);ctx.lineWidth=w||1;
+  ctx.beginPath();ctx.arc(x,y,r,0,6.283);ctx.stroke();ctx.restore();}
+
+const blobs=Array.from({length:7},(_,i)=>({x:Math.random(),y:Math.random(),r:.32+Math.random()*.38,
+  ph:Math.random()*6.28,sp:.00006+Math.random()*.00013,ci:i%4,ax:.05+Math.random()*.11,ay:.05+Math.random()*.11}));
+function nebula(ctx,T){
+  ctx.fillStyle=BASE;ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  blobs.forEach(b=>{
+    const x=(b.x+Math.sin(T*b.sp+b.ph)*b.ax)*W, y=(b.y+Math.cos(T*b.sp*1.3+b.ph)*b.ay)*H;
+    const r=b.r*W*(.85+.15*Math.sin(T*b.sp*2+b.ph));
+    const g=ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,rgba(NEB[b.ci],.55));g.addColorStop(.55,rgba(NEB[b.ci],.18));g.addColorStop(1,rgba(NEB[b.ci],0));
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,6.283);ctx.fill();
+  });
+  ctx.restore();
+  const v=ctx.createRadialGradient(W/2,H*.45,H*.22,W/2,H*.45,H*.9);
+  v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.55)');
+  ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
+}
+function bellPath(ctx,cx,cy,r){
+  const w=r,h=r*1.42,yb=cy+h*.52;
+  ctx.beginPath();ctx.moveTo(cx-w,yb);
+  ctx.bezierCurveTo(cx-w*.97,cy-h*.06, cx-w*.58,cy-h*.74, cx,cy-h*.80);
+  ctx.bezierCurveTo(cx+w*.58,cy-h*.74, cx+w*.97,cy-h*.06, cx+w,yb);
+  ctx.closePath();
+}
+function bellGlow(ctx,cx,cy,r,col,lit){
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const g=ctx.createRadialGradient(cx,cy-r*.15,0,cx,cy-r*.15,r*3.1);
+  g.addColorStop(0,rgba(col,.42*lit));g.addColorStop(.35,rgba(col,.16*lit));g.addColorStop(1,rgba(col,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy-r*.15,r*3.1,0,6.283);ctx.fill();
+  ctx.restore();
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  bellPath(ctx,cx,cy,r);ctx.clip();
+  const g2=ctx.createRadialGradient(cx,cy+r*.66,0,cx,cy+r*.66,r*1.75);
+  g2.addColorStop(0,rgba('#ffffff',.92*lit));g2.addColorStop(.22,rgba(col,.72*lit));
+  g2.addColorStop(.62,rgba(col,.26*lit));g2.addColorStop(1,rgba(col,.04*lit));
+  ctx.fillStyle=g2;ctx.fillRect(cx-r*2.6,cy-r*3,r*5.2,r*6);ctx.restore();
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.9);ctx.lineWidth=1;bellPath(ctx,cx,cy,r);ctx.stroke();ctx.restore();
+}
+
+/* layout comum (Opcao A) */
+function baseScene(ctx,T){
+  nebula(ctx,T);
+  const cy=282,p=.5+.5*Math.sin(T*.0013);
+  for(let i=0;i<3;i++){const t=((T*.00016+i/3)%1);ring(ctx,CX,cy,52+t*118,(1-t)*.22);}
+  ring(ctx,CX,cy,52,.5);
+  bellGlow(ctx,CX,cy,26,IDENT.grave1,.85+p*.15);
+  const cta=.35+.35*Math.sin(T*.0022);
+  txt(ctx,'toque para comecar',CX,600,10,rgba(ACCENT,cta),'center',5,300);
+}
+
+/* mede a largura de cada letra pra layout manual (mesma fonte/peso/tamanho) */
+function layoutWord(ctx,word,size,sp,weight){
+  ctx.save();ctx.font=weight+' '+size+'px "Helvetica Neue",Helvetica,Arial,sans-serif';
+  const widths=[...word].map(ch=>ctx.measureText(ch).width+sp);
+  ctx.restore();
+  const total=widths.reduce((a,b)=>a+b,0)-sp;
+  let x=-total/2;
+  return[...word].map((ch,i)=>{const cx=x+widths[i]/2-sp/2; x+=widths[i]; return{ch,cx};});
+}
+
+/* ---------- Partitura ---------- */
+const wordP=[...'SONARE'];
+function drawPartitura(ctx,T){
+  baseScene(ctx,T);
+  const size=32,cy=438,letters=layoutWord(ctx,'SONARE',size,13,200);
+  const heights=[0,-8,4,-3,6,-6]; // posicao na pauta por letra (fixa, "melodia" do nome)
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.14);ctx.lineWidth=1;
+  for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(CX-120,cy+i*7);ctx.lineTo(CX+120,cy+i*7);ctx.stroke();}
+  ctx.restore();
+  letters.forEach((L,i)=>{
+    txt(ctx,L.ch,CX+L.cx,cy+heights[i],size,rgba('#ffffff',.95),'center',0,200);
+  });
+  txt(ctx,'ressonancia',CX,478,11,rgba('#ffffff',.34),'center',7,300);
+}
+
+/* ---------- Onda ---------- */
+function drawOnda(ctx,T){
+  baseScene(ctx,T);
+  const size=34,cy=438,letters=layoutWord(ctx,'SONARE',size,14,200);
+  ctx.save();ctx.strokeStyle=rgba(IDENT.media1,.4);ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let x=-130;x<=130;x+=4){
+    const y=cy+8+Math.sin(x*.045+T*.0016)*10;
+    x===-130?ctx.moveTo(CX+x,y):ctx.lineTo(CX+x,y);
+  }
+  ctx.stroke();ctx.restore();
+  letters.forEach((L)=>{
+    const y=cy+Math.sin(L.cx*.045+T*.0016)*10;
+    txt(ctx,L.ch,CX+L.cx,y,size,rgba('#ffffff',.95),'center',0,200);
+  });
+  txt(ctx,'ressonancia',CX,478,11,rgba('#ffffff',.34),'center',7,300);
+}
+
+/* ---------- Sequencia ---------- */
+let seqStart=null;
+function drawSequencia(ctx,T){
+  baseScene(ctx,T);
+  if(seqStart===null)seqStart=T;
+  const size=34,cy=438,letters=layoutWord(ctx,'SONARE',size,14,200);
+  const el=(T-seqStart)/1000;
+  letters.forEach((L,i)=>{
+    const t0=(i*0.18)%3.2, tt=el%3.2;
+    const k=Math.max(0,Math.sin(Math.min(1,Math.max(0,(tt-t0)*2.4))*Math.PI));
+    const a=.65+.35*k;
+    if(k>.05){
+      ctx.save();ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(CX+L.cx,cy,0,CX+L.cx,cy,26);
+      g.addColorStop(0,rgba(IDENT.grave1,.35*k));g.addColorStop(1,rgba(IDENT.grave1,0));
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(CX+L.cx,cy,26,0,6.283);ctx.fill();
+      ctx.restore();
+    }
+    txt(ctx,L.ch,CX+L.cx,cy,size,rgba('#ffffff',a),'center',0,200);
+  });
+  txt(ctx,'ressonancia',CX,478,11,rgba('#ffffff',.34),'center',7,300);
+}
+
+const jobs=[['cv-partitura',drawPartitura],['cv-onda',drawOnda],['cv-sequencia',drawSequencia]];
+const ctxs=jobs.map(([id,fn])=>[document.getElementById(id).getContext('2d'),fn]);
+function loop(T){
+  ctxs.forEach(([ctx,fn])=>fn(ctx,T));
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>Sonare — opcoes de mapa</title>
+<style>
+  html,body{margin:0;background:#0a0508;color:#e9e4e0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  h1{font-weight:200;letter-spacing:6px;text-align:center;font-size:22px;padding:36px 0 6px;text-transform:uppercase;}
+  p.sub{text-align:center;color:#8a7d78;font-size:13px;letter-spacing:1px;margin:0 0 34px;}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:34px;max-width:900px;margin:0 auto;padding:0 30px 60px;}
+  .card{display:flex;flex-direction:column;align-items:center;}
+  canvas{border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.55);}
+  .tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#0a0508;background:#E8A23C;
+       padding:3px 10px;border-radius:20px;margin-bottom:10px;font-weight:600;}
+  .lbl{font-size:14px;letter-spacing:3px;text-transform:uppercase;margin-top:16px;font-weight:300;}
+  .desc{font-size:12px;color:#a89a94;text-align:center;max-width:280px;margin-top:6px;line-height:1.5;letter-spacing:.3px;}
+  @media(max-width:760px){.grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<h1>Sonare</h1>
+<p class="sub">4 opcoes de layout para a tela de mapa</p>
+<div class="grid">
+
+  <div class="card">
+    <canvas id="cv-a" width="300" height="470"></canvas>
+    <div class="lbl">A · Trilha refinada</div>
+    <div class="desc">O caminho que ja existe, mas com uma linha continua e acesa marcando o quanto voce ja andou. As 3 bolinhas de estrela viram um anel fino em volta do proprio no.</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">recomendado</span>
+    <canvas id="cv-b" width="300" height="470"></canvas>
+    <div class="lbl">B · Rede de ressonancia</div>
+    <div class="desc">O mapa vira a propria mecanica do jogo: um Sino Mestre na base, cabos que acendem conforme voce avanca, e cada nivel e um sino de verdade (skin Anel) em vez de um circulo numerado.</div>
+  </div>
+
+  <div class="card">
+    <canvas id="cv-c" width="300" height="470"></canvas>
+    <div class="lbl">C · Percurso em zigue-zague</div>
+    <div class="desc">Uma estrada dobrada em 3 faixas horizontais, como um mapa de fases casual. Sensacao de trilha/jornada, mais folego visual entre os nos.</div>
+  </div>
+
+  <div class="card">
+    <canvas id="cv-d" width="300" height="470"></canvas>
+    <div class="lbl">D · Linha do tempo</div>
+    <div class="desc">Uma unica linha vertical (como a pauta do nome SONARE), cada fase e uma parada com o titulo do lado. Mais legivel e escala melhor se o jogo ganhar mais fases.</div>
+  </div>
+
+</div>
+<script>
+/* ── cor ─────────────────────────────────────────────────────────── */
+const hex2rgb=h=>{h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.substr(i,2),16));};
+const rgba=(h,a)=>{const c=hex2rgb(h);return`rgba(${c[0]},${c[1]},${c[2]},${a})`;};
+const IDENT=['#3D7BFF','#9B5CFF','#23D6A0','#FFB020','#FF3B4E'];
+const ACCENT='#E8A23C';
+const col=i=>IDENT[i%IDENT.length];
+
+const TITLES=['o toque','dois sinos','tamanhos','capacidade','bloqueios','sonare','ramificacao','labirinto','convergencia'];
+const STATE=[
+  {stars:3,perfect:true, locked:false},
+  {stars:2,perfect:false,locked:false},
+  {stars:3,perfect:true, locked:false},
+  {stars:2,perfect:false,locked:false},
+  {stars:1,perfect:false,locked:false},
+  {stars:3,perfect:false,locked:false},
+  {stars:0,perfect:false,locked:false,current:true},
+  {stars:0,perfect:false,locked:true},
+  {stars:0,perfect:false,locked:true},
+];
+
+function txt(ctx,s,x,y,size,c,al='center',sp=2,weight=300){
+  ctx.save();ctx.font=weight+' '+size+'px "Helvetica Neue",Helvetica,Arial,sans-serif';
+  try{ctx.letterSpacing=sp+'px';}catch(e){}
+  ctx.textAlign=al;ctx.textBaseline='middle';ctx.fillStyle=c;ctx.fillText(s,x,y);ctx.restore();
+}
+function lock(ctx,x,y,a){ctx.save();ctx.strokeStyle=rgba('#ffffff',a);ctx.lineWidth=1.3;
+  ctx.strokeRect(x-6,y-3,12,10);ctx.beginPath();ctx.arc(x,y-3,4,Math.PI,0);ctx.stroke();ctx.restore();}
+function sparkle(ctx,x,y,s,c,a){ctx.save();ctx.strokeStyle=rgba(c,a);ctx.lineWidth=1.4;ctx.beginPath();
+  ctx.moveTo(x-s,y);ctx.lineTo(x+s,y);ctx.moveTo(x,y-s);ctx.lineTo(x,y+s);
+  ctx.moveTo(x-s*.6,y-s*.6);ctx.lineTo(x+s*.6,y+s*.6);ctx.moveTo(x+s*.6,y-s*.6);ctx.lineTo(x-s*.6,y+s*.6);
+  ctx.stroke();ctx.restore();}
+
+/* fundo quente (skin Vinho, igual ao print do usuario) */
+function bg(ctx,W,H){
+  ctx.fillStyle='#1a0409';ctx.fillRect(0,0,W,H);
+  const spots=[[W*.3,H*.15,'#7d1f2a',.55],[W*.75,H*.4,'#5e1226',.5],
+               [W*.2,H*.75,'#8e2b3a',.4],[W*.7,H*.9,'#3a0a1c',.6]];
+  spots.forEach(([x,y,c,a])=>{const g=ctx.createRadialGradient(x,y,0,x,y,W*.75);
+    g.addColorStop(0,rgba(c,a));g.addColorStop(1,rgba(c,0));
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);});
+}
+
+/* ══ A — trilha refinada ═══════════════════════════════════════════ */
+function drawA(ctx,W,H){
+  bg(ctx,W,H);
+  const n=9,yBot=H-42,yTop=70,step=(yBot-yTop)/(n-1);
+  const pos=Array.from({length:n},(_,i)=>[i%2?W*.68:W*.32,yBot-i*step]);
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.10);ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.moveTo(pos[0][0],pos[0][1]);
+  for(let i=1;i<n;i++){const a=pos[i-1],b=pos[i],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
+    ctx.quadraticCurveTo(a[0],my,b[0],b[1]);}
+  ctx.stroke();ctx.restore();
+  const litUpTo=5;
+  ctx.save();ctx.strokeStyle=rgba(ACCENT,.65);ctx.lineWidth=2;ctx.shadowColor=ACCENT;ctx.shadowBlur=8;
+  ctx.beginPath();ctx.moveTo(pos[0][0],pos[0][1]);
+  for(let i=1;i<=litUpTo;i++){const a=pos[i-1],b=pos[i],my=(a[1]+b[1])/2;ctx.quadraticCurveTo(a[0],my,b[0],b[1]);}
+  ctx.stroke();ctx.restore();
+
+  pos.forEach((p,i)=>{
+    const st=STATE[i],c=col(i),r=22;
+    if(!st.locked&&st.stars>0){const g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],r*1.9);
+      g.addColorStop(0,rgba(c,.32));g.addColorStop(1,rgba(c,0));ctx.fillStyle=g;
+      ctx.beginPath();ctx.arc(p[0],p[1],r*1.9,0,6.283);ctx.fill();}
+    for(let s=0;s<3;s++){const a0=Math.PI*.72+s*(Math.PI*.85);
+      ctx.save();ctx.strokeStyle=s<st.stars?rgba(c,.9):rgba('#ffffff',.12);ctx.lineWidth=2.4;
+      ctx.beginPath();ctx.arc(p[0],p[1],r+5,a0,a0+Math.PI*.72);ctx.stroke();ctx.restore();}
+    ctx.save();ctx.strokeStyle=st.locked?rgba('#ffffff',.16):(st.current?rgba(ACCENT,.85):rgba('#ffffff',.55));
+    ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(p[0],p[1],r,0,6.283);ctx.stroke();ctx.restore();
+    if(st.locked)lock(ctx,p[0],p[1],.4);
+    else txt(ctx,''+(i+1),p[0],p[1]+1,15,rgba('#ffffff',.9),'center',0,200);
+    if(st.perfect)sparkle(ctx,p[0]+r-2,p[1]-r+2,3.2,ACCENT,.9);
+    txt(ctx,TITLES[i],p[0],p[1]+r+16,8.5,rgba('#ffffff',st.locked?.2:.42),'center',2,300);
+  });
+}
+
+/* ══ B — rede de ressonancia ═══════════════════════════════════════ */
+function drawB(ctx,W,H){
+  bg(ctx,W,H);
+  const hub=[W/2,H-30];
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.3);ctx.lineWidth=1;
+  [1,2,3].forEach(k=>{ctx.globalAlpha=.22/k;ctx.beginPath();ctx.arc(hub[0],hub[1],10+k*9,0,6.283);ctx.stroke();});
+  ctx.restore();
+  ctx.save();const gg=ctx.createRadialGradient(hub[0],hub[1],0,hub[0],hub[1],20);
+  gg.addColorStop(0,rgba('#ffffff',.9));gg.addColorStop(1,rgba(IDENT[0],0));
+  ctx.fillStyle=gg;ctx.beginPath();ctx.arc(hub[0],hub[1],20,0,6.283);ctx.fill();ctx.restore();
+
+  const n=9,yBot=H-78,yTop=66,step=(yBot-yTop)/(n-1);
+  const jitter=[8,-14,10,-6,13,-10,7,-12,0];
+  const pos=Array.from({length:n},(_,i)=>[W/2+(i%2?1:-1)*(46+jitter[i]*1.4),yBot-i*step]);
+
+  for(let i=0;i<n;i++){
+    const from=i===0?hub:pos[i-1],to=pos[i],st=STATE[i],lit=!st.locked;
+    ctx.save();
+    if(lit){ctx.strokeStyle=rgba(col(i),.55);ctx.lineWidth=1.6;ctx.shadowColor=col(i);ctx.shadowBlur=6;}
+    else{ctx.strokeStyle=rgba('#ffffff',.10);ctx.lineWidth=1;ctx.setLineDash([1,5]);}
+    ctx.beginPath();ctx.moveTo(from[0],from[1]);ctx.lineTo(to[0],to[1]);ctx.stroke();ctx.restore();
+  }
+
+  pos.forEach((p,i)=>{
+    const st=STATE[i],c=col(i),r=15;
+    if(!st.locked){const g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],r*2.6);
+      g.addColorStop(0,rgba(c,.4));g.addColorStop(1,rgba(c,0));ctx.fillStyle=g;
+      ctx.beginPath();ctx.arc(p[0],p[1],r*2.6,0,6.283);ctx.fill();}
+    const rings=st.locked?1:(1+st.stars);
+    for(let k=0;k<rings;k++){ctx.save();
+      ctx.strokeStyle=st.locked?rgba('#ffffff',.18):rgba(c,.85-k*.14);ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.arc(p[0],p[1],4+k*4.2,0,6.283);ctx.stroke();ctx.restore();}
+    if(st.perfect)sparkle(ctx,p[0]+r+2,p[1]-r-2,3,ACCENT,.9);
+    txt(ctx,''+(i+1),p[0],p[1]+r+13,9,rgba('#ffffff',st.locked?.25:.55),'center',1,300);
+    txt(ctx,TITLES[i],p[0],p[1]+r+25,8,rgba('#ffffff',st.locked?.16:.36),'center',1.5,300);
+  });
+}
+
+/* ══ C — percurso em zigue-zague (3 faixas) ═══════════════════════ */
+function drawC(ctx,W,H){
+  bg(ctx,W,H);
+  const rows=[[0,1,2],[3,4,5],[6,7,8]];
+  const rowY=[H*.20,H*.52,H*.84];
+  const pos=[];
+  rows.forEach((row,ri)=>{
+    const dir=ri%2===0?1:-1;
+    const xs=dir===1?[W*.20,W*.5,W*.80]:[W*.80,W*.5,W*.20];
+    row.forEach((lv,k)=>pos[lv]=[xs[k],rowY[ri]]);
+  });
+  ctx.save();ctx.strokeStyle=rgba(ACCENT,.4);ctx.lineWidth=5;ctx.lineCap='round';ctx.setLineDash([2,14]);
+  ctx.beginPath();ctx.moveTo(pos[0][0],pos[0][1]);
+  for(let i=1;i<9;i++)ctx.lineTo(pos[i][0],pos[i][1]);
+  ctx.stroke();ctx.restore();
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.18);ctx.lineWidth=1;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(pos[0][0],pos[0][1]);
+  for(let i=1;i<9;i++)ctx.lineTo(pos[i][0],pos[i][1]);
+  ctx.stroke();ctx.restore();
+
+  pos.forEach((p,i)=>{
+    const st=STATE[i],c=col(i),r=23;
+    const g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],r*1.7);
+    g.addColorStop(0,rgba(st.locked?'#ffffff':c,st.locked?.05:.35));g.addColorStop(1,rgba(c,0));
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p[0],p[1],r*1.7,0,6.283);ctx.fill();
+    ctx.save();ctx.fillStyle=rgba('#1a0409',.88);ctx.beginPath();ctx.arc(p[0],p[1],r,0,6.283);ctx.fill();
+    ctx.strokeStyle=st.current?rgba(ACCENT,.9):rgba('#ffffff',st.locked?.18:.6);ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+    if(st.locked)lock(ctx,p[0],p[1],.4);
+    else txt(ctx,''+(i+1),p[0],p[1]+1,16,rgba('#ffffff',.92),'center',0,200);
+    if(!st.locked)for(let s=0;s<3;s++)
+      ctx.save(),ctx.fillStyle=s<st.stars?rgba(c,.9):rgba('#ffffff',.15),
+      ctx.beginPath(),ctx.arc(p[0]-9+s*9,p[1]+r+11,2.4,0,6.283),ctx.fill(),ctx.restore();
+    if(st.current){ctx.save();ctx.strokeStyle=rgba(ACCENT,.8);ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(p[0],p[1]-r-14);ctx.lineTo(p[0]-5,p[1]-r-6);ctx.lineTo(p[0]+5,p[1]-r-6);
+      ctx.closePath();ctx.fillStyle=rgba(ACCENT,.8);ctx.fill();ctx.restore();}
+    txt(ctx,TITLES[i],p[0],p[1]+r+24,8,rgba('#ffffff',st.locked?.18:.4),'center',1.5,300);
+  });
+}
+
+/* ══ D — linha do tempo ════════════════════════════════════════════ */
+function drawD(ctx,W,H){
+  bg(ctx,W,H);
+  const x0=54,yTop=44,yBot=H-30,n=9,step=(yBot-yTop)/(n-1);
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.16);ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x0,yTop);ctx.lineTo(x0,yBot);ctx.stroke();ctx.restore();
+  ctx.save();ctx.strokeStyle=rgba(ACCENT,.6);ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x0,yTop);ctx.lineTo(x0,yTop+step*5);ctx.stroke();ctx.restore();
+
+  for(let i=0;i<n;i++){
+    const y=yTop+i*step,st=STATE[i],c=col(i),r=13;
+    if(!st.locked){const g=ctx.createRadialGradient(x0,y,0,x0,y,r*2.4);
+      g.addColorStop(0,rgba(c,.35));g.addColorStop(1,rgba(c,0));ctx.fillStyle=g;
+      ctx.beginPath();ctx.arc(x0,y,r*2.4,0,6.283);ctx.fill();}
+    ctx.save();ctx.fillStyle='#1a0409';ctx.beginPath();ctx.arc(x0,y,r,0,6.283);ctx.fill();
+    ctx.strokeStyle=st.locked?rgba('#ffffff',.2):(st.current?rgba(ACCENT,.9):rgba('#ffffff',.6));
+    ctx.lineWidth=1.3;ctx.stroke();ctx.restore();
+    if(st.locked)lock(ctx,x0,y,.4); else txt(ctx,''+(i+1),x0,y+1,11,rgba('#ffffff',.9),'center',0,200);
+
+    const tx=x0+34;
+    txt(ctx,TITLES[i],tx,y-6,11,rgba('#ffffff',st.locked?.22:.62),'left',2,300);
+    if(!st.locked){
+      for(let s=0;s<3;s++){ctx.save();ctx.fillStyle=s<st.stars?rgba(c,.9):rgba('#ffffff',.15);
+        ctx.beginPath();ctx.arc(tx+s*11,y+11,2.6,0,6.283);ctx.fill();ctx.restore();}
+      if(st.perfect)sparkle(ctx,tx+46,y+11,3,ACCENT,.9);
+    }else txt(ctx,'bloqueada',tx,y+11,8,rgba('#ffffff',.18),'left',1.5,300);
+  }
+}
+
+[['cv-a',drawA],['cv-b',drawB],['cv-c',drawC],['cv-d',drawD]].forEach(([id,fn])=>{
+  const cv=document.getElementById(id),ctx=cv.getContext('2d');
+  fn(ctx,cv.width,cv.height);
+});
+</script>
+</body>
+</html>

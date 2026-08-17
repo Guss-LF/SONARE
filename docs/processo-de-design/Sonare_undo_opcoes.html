@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>Sonare — opcoes de undo</title>
+<style>
+  html,body{margin:0;background:#03060f;color:#e9e4e0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  h1{font-weight:200;letter-spacing:6px;text-align:center;font-size:20px;padding:32px 0 4px;text-transform:uppercase;}
+  p.sub{text-align:center;color:#7d8296;font-size:12px;letter-spacing:1px;margin:0 0 34px;}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:26px;max-width:640px;margin:0 auto;padding:0 30px 60px;}
+  .card{background:#0a1020;border:1px solid #1c2440;border-radius:14px;padding:22px 18px 20px;display:flex;flex-direction:column;align-items:center;}
+  .card canvas{width:100px;height:100px;}
+  .hud{display:flex;align-items:center;gap:14px;background:#050810;border:1px solid #161d33;border-radius:10px;padding:10px 16px;margin-top:6px;}
+  .hud canvas{width:110px;height:30px;}
+  .lbl{font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-top:16px;font-weight:300;}
+  .desc{font-size:11.5px;color:#9098ab;text-align:center;max-width:230px;margin-top:6px;line-height:1.55;letter-spacing:.2px;}
+</style>
+</head>
+<body>
+<h1>Sonare</h1>
+<p class="sub">opcoes de icone — "desfazer ultima jogada"</p>
+<div class="grid">
+
+  <div class="card">
+    <canvas id="cv-a" width="200" height="200"></canvas>
+    <div class="lbl">A · meia-volta</div>
+    <div class="desc">seta em U classica, o simbolo universal de "desfazer" (o mesmo do ctrl+Z). bem diferente do circulo do restart.</div>
+  </div>
+
+  <div class="card">
+    <canvas id="cv-b" width="200" height="200"></canvas>
+    <div class="lbl">B · passo anterior</div>
+    <div class="desc">barra + triangulo, como o "anterior" de um player de musica. sugere "volte um passo na sequencia".</div>
+  </div>
+
+  <div class="card">
+    <canvas id="cv-c" width="200" height="200"></canvas>
+    <div class="lbl">C · sino fantasma</div>
+    <div class="desc">um sino tracejado (a posicao antiga) com uma seta curta apontando pra ele — "o sino volta pro lugar". mais tematico, menos universal.</div>
+  </div>
+
+  <div class="card">
+    <canvas id="cv-d" width="200" height="200"></canvas>
+    <div class="lbl">D · ponto e volta</div>
+    <div class="desc">um arco simples com um pontinho na ponta em vez de seta — minimalista, discreto, nao compete visualmente com o restart.</div>
+  </div>
+
+</div>
+
+<h1 style="font-size:14px;padding-top:0;">como fica ao lado dos outros</h1>
+<div style="display:flex;justify-content:center;gap:40px;padding-bottom:60px;flex-wrap:wrap;">
+  <div class="hud"><canvas id="hud-a" width="220" height="60"></canvas></div>
+  <div class="hud"><canvas id="hud-b" width="220" height="60"></canvas></div>
+  <div class="hud"><canvas id="hud-c" width="220" height="60"></canvas></div>
+  <div class="hud"><canvas id="hud-d" width="220" height="60"></canvas></div>
+</div>
+
+<script>
+const hex2rgb=h=>{h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.substr(i,2),16));};
+const rgba=(h,a)=>{const c=hex2rgb(h);return`rgba(${c[0]},${c[1]},${c[2]},${a})`;};
+const LINE='#ffffff';
+
+/* ── icones ja existentes no jogo, para comparacao no HUD ── */
+function iBack(ctx,x,y,a){ctx.save();ctx.strokeStyle=rgba(LINE,a);ctx.lineWidth=1.3;
+  ctx.beginPath();ctx.moveTo(x+5,y-6);ctx.lineTo(x-3,y);ctx.lineTo(x+5,y+6);ctx.stroke();ctx.restore();}
+function iRestart(ctx,x,y,a){
+  ctx.save();ctx.strokeStyle=rgba(LINE,a);ctx.lineWidth=1.5;
+  const r=8,a0=-Math.PI*.15,a1=Math.PI*1.55;
+  ctx.beginPath();ctx.arc(x,y,r,a0,a1);ctx.stroke();
+  const ex=x+Math.cos(a1)*r,ey=y+Math.sin(a1)*r;
+  const tx=Math.cos(a1+Math.PI/2),ty=Math.sin(a1+Math.PI/2);
+  const nx=Math.cos(a1),ny=Math.sin(a1),s=3.6;
+  ctx.beginPath();
+  ctx.moveTo(ex+tx*s,ey+ty*s);
+  ctx.lineTo(ex-nx*s*.9-tx*s*.5,ey-ny*s*.9-ty*s*.5);
+  ctx.lineTo(ex+nx*s*.9-tx*s*.5,ey+ny*s*.9-ty*s*.5);
+  ctx.closePath();ctx.fillStyle=rgba(LINE,a);ctx.fill();
+  ctx.restore();}
+
+/* ── A: meia-volta (U-turn classico) ── */
+function iUndoA(ctx,x,y,a){
+  ctx.save();ctx.strokeStyle=rgba(LINE,a);ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(x+1,y-1,7,Math.PI*.75,Math.PI*1.85,false);ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x-6.5,y-4.5);ctx.lineTo(x-9.5,y+1.5);ctx.lineTo(x-3,y+.5);
+  ctx.closePath();ctx.fillStyle=rgba(LINE,a);ctx.fill();
+  ctx.restore();}
+
+/* ── B: passo anterior (rewind bar) ── */
+function iUndoB(ctx,x,y,a){
+  ctx.save();ctx.strokeStyle=rgba(LINE,a);ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(x-6,y-7);ctx.lineTo(x-6,y+7);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x+7,y-7);ctx.lineTo(x-3,y);ctx.lineTo(x+7,y+7);ctx.closePath();
+  ctx.fillStyle=rgba(LINE,a);ctx.fill();
+  ctx.restore();}
+
+/* ── C: sino fantasma ── */
+function iUndoC(ctx,x,y,a){
+  ctx.save();ctx.strokeStyle=rgba(LINE,a*.55);ctx.lineWidth=1.2;ctx.setLineDash([1.5,2]);
+  ctx.beginPath();ctx.arc(x+3,y+2,6,0,6.283);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle=rgba(LINE,a);ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(x-4,y-3,5.5,0,6.283);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x+2,y-5);ctx.lineTo(x+8,y-8);ctx.lineTo(x+5,y-1.5);
+  ctx.closePath();ctx.fillStyle=rgba(LINE,a);ctx.fill();
+  ctx.restore();}
+
+/* ── D: ponto e volta (arco minimalista) ── */
+function iUndoD(ctx,x,y,a){
+  ctx.save();ctx.strokeStyle=rgba(LINE,a);ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(x,y,7,Math.PI*.95,Math.PI*2.55,true);ctx.stroke();
+  const ang=Math.PI*.95,ex=x+Math.cos(ang)*7,ey=y+Math.sin(ang)*7;
+  ctx.beginPath();ctx.arc(ex,ey,1.8,0,6.283);ctx.fillStyle=rgba(LINE,a);ctx.fill();
+  ctx.restore();}
+
+const cards=[['cv-a',iUndoA],['cv-b',iUndoB],['cv-c',iUndoC],['cv-d',iUndoD]];
+cards.forEach(([id,fn])=>{
+  const cv=document.getElementById(id),ctx=cv.getContext('2d');
+  ctx.setTransform(2,0,0,2,0,0);
+  fn(ctx,50,50,.95);
+});
+
+const huds=[['hud-a',iUndoA],['hud-b',iUndoB],['hud-c',iUndoC],['hud-d',iUndoD]];
+huds.forEach(([id,fn])=>{
+  const cv=document.getElementById(id),ctx=cv.getContext('2d');
+  ctx.setTransform(2,0,0,2,0,0);
+  iBack(ctx,16,28,.7);
+  iRestart(ctx,52,28,.7);
+  fn(ctx,88,28,.7);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sonare — skins v2</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#03060f;color:#eef1f6;
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 24px 100px}
+  h1{font-weight:200;font-size:26px;letter-spacing:.1em;margin:0 0 6px}
+  .sub{font-size:13px;color:rgba(238,241,246,.5);font-weight:300;margin:0 0 50px;max-width:64ch;line-height:1.6}
+  .row{margin-bottom:56px}
+  .row-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .row-name{font-size:16px;font-weight:500;letter-spacing:.02em}
+  .row-tag{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:10px}
+  .tag-fix{color:#ffb020;border:1px solid rgba(255,176,32,.5)}
+  .tag-new{color:#57ffd0;border:1px solid rgba(87,255,208,.45)}
+  .row-desc{font-size:12.5px;color:rgba(238,241,246,.55);font-weight:300;line-height:1.65;
+    max-width:66ch;margin:8px 0 20px}
+  .before{display:flex;gap:10px;margin-bottom:14px;align-items:center}
+  .before .lbl{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(238,241,246,.32)}
+  .glyphs{display:flex;gap:6px;flex-wrap:wrap}
+  .g{width:100px;text-align:center}
+  canvas{width:100%;aspect-ratio:1;display:block}
+  .g .lbl{font-size:9px;color:rgba(238,241,246,.35);margin-top:4px;letter-spacing:.03em}
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid rgba(238,241,246,.12);
+    font-size:11px;color:rgba(238,241,246,.32);font-weight:300;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SKINS — SEGUNDA LEVA</h1>
+  <p class="sub">Cristal reformado primeiro, depois três famílias novas. Tudo em canvas de verdade, com a mesma matemática que vai pro jogo.</p>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Cristal</span><span class="row-tag tag-fix">reforma</span></div>
+    <p class="row-desc">O problema não é o corte da gema — é a decoração por cima: aquelas cruzes de "brilho" piscando são o clichê mais batido de ícone de joia barata. Troquei por facetas de verdade (planos com tom diferente, não gradiente único) e um único reflexo que varre a peça, sem asterisco nenhum.</p>
+    <div class="before">
+      <span class="lbl">antes</span>
+      <div style="width:64px"><canvas id="cv-cristal-old" width="128" height="128"></canvas></div>
+      <span class="lbl">depois →</span>
+    </div>
+    <div class="glyphs" id="row-cristal"></div>
+  </div>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Cladni</span><span class="row-tag tag-new">nova</span></div>
+    <p class="row-desc">As figuras de Chladni são o padrão real que aparece numa placa quando o som a faz vibrar — literalmente ressonância virando desenho. Cada sino usa a própria frequência dele (já existe no código) pra decidir quantos nós o padrão tem: grave = poucos, agudo = muitos, exatamente como acontece de verdade.</p>
+    <div class="glyphs" id="row-cladni"></div>
+  </div>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Filamento</span><span class="row-tag tag-new">nova</span></div>
+    <p class="row-desc">Contraste de material com o resto do jogo: em vez de traço fino e frio, um fio incandescente dobrado dentro de uma cápsula de vidro, brilho quente. A mesma ideia de "luz por dentro" do Sino padrão, só que tátil.</p>
+    <div class="glyphs" id="row-filamento"></div>
+  </div>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Poliedro</span><span class="row-tag tag-new">nova</span></div>
+    <p class="row-desc">A única família totalmente sem gradiente: facetas geométricas com cor sólida chapada, cada uma um tom, como um low-poly. Gráfico e moderno, o oposto do orgânico das outras — testei sem nenhum brilho piscando, só luz e sombra fixas por faceta.</p>
+    <div class="glyphs" id="row-poliedro"></div>
+  </div>
+
+  <footer>Comparação lado a lado do Cristal antigo (com os sparkles em cruz) vs a reforma. As três famílias novas usam o mesmo sistema de "mode" que Onda/Anel/Lua já usam no jogo.</footer>
+</div>
+
+<script>
+'use strict';
+const IDENT={grave1:'#3D7BFF',grave2:'#9B5CFF',media1:'#23D6A0',media2:'#FFB020',aguda:'#FF3B4E'};
+const SIZES={grave1:19,grave2:19,media1:15,media2:15,aguda:11};
+const FREQ={grave1:130.81,grave2:146.83,media1:196.00,media2:220.00,aguda:329.63};
+const ORDER=['grave1','grave2','media1','media2','aguda'];
+const hex2rgb=h=>{h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.substr(i,2),16));};
+const rgba=(h,a)=>{const c=hex2rgb(h);return`rgba(${c[0]},${c[1]},${c[2]},${a})`;};
+const mixc=(a,b,t)=>{const A=hex2rgb(a),B=hex2rgb(b);
+  return'#'+[0,1,2].map(i=>Math.round(A[i]+(B[i]-A[i])*t).toString(16).padStart(2,'0')).join('');};
+
+const canvases=[];
+function makeRow(containerId, drawFn){
+  const box=document.getElementById(containerId);
+  ORDER.forEach(t=>{
+    const g=document.createElement('div'); g.className='g';
+    const cv=document.createElement('canvas'); cv.width=128; cv.height=128;
+    g.appendChild(cv);
+    const lbl=document.createElement('div'); lbl.className='lbl'; lbl.textContent=t;
+    g.appendChild(lbl);
+    box.appendChild(g);
+    cv._t=t; cv._ctx=cv.getContext('2d');
+    canvases.push({cv,drawFn});
+  });
+}
+
+/* ---------- gema generica (octogono) para as duas versoes do Cristal ---------- */
+function gemPts(cx,cy,R){
+  const pts=[];
+  for(let k=0;k<8;k++){const a=k*Math.PI/4+Math.PI/8; pts.push([cx+Math.cos(a)*R,cy+Math.sin(a)*R*.92]);}
+  return pts;
+}
+function gemPath(ctx,pts){ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();}
+
+function drawCristalOld(ctx,t,T){
+  const cx=64,cy=64,r=SIZES[t]*2.1,col=IDENT[t];
+  ctx.clearRect(0,0,128,128);
+  const pts=gemPts(cx,cy,r);
+  ctx.save(); gemPath(ctx,pts); ctx.clip();
+  const g=ctx.createLinearGradient(cx-r,cy-r,cx+r,cy+r);
+  g.addColorStop(0,rgba(col,.30));g.addColorStop(.5,rgba(col,.10));g.addColorStop(1,rgba(col,.26));
+  ctx.fillStyle=g; ctx.fillRect(0,0,128,128);
+  ctx.restore();
+  ctx.save(); ctx.strokeStyle=rgba('#ffffff',.85); ctx.lineWidth=1; gemPath(ctx,pts); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.strokeStyle=rgba(col,.5); ctx.lineWidth=1;
+  const inner=[];for(let k=0;k<8;k++){const a=k*Math.PI/4+Math.PI/8;inner.push([cx+Math.cos(a)*r*.56,cy+Math.sin(a)*r*.52]);}
+  gemPath(ctx,inner); ctx.stroke();
+  pts.forEach((p,i)=>{const q=inner[i];ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();});
+  ctx.restore();
+  ctx.save(); ctx.fillStyle=rgba('#ffffff',.9);
+  ctx.beginPath();ctx.arc(cx-r*.25,cy-r*.35,r*.11,0,6.283);ctx.fill();
+  ctx.restore();
+  const star=(sx,sy,ss,aa)=>{ctx.save();ctx.strokeStyle=rgba('#ffffff',aa);ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(sx-ss,sy);ctx.lineTo(sx+ss,sy);ctx.moveTo(sx,sy-ss);ctx.lineTo(sx,sy+ss);
+    ctx.moveTo(sx-ss*.42,sy-ss*.42);ctx.lineTo(sx+ss*.42,sy+ss*.42);
+    ctx.moveTo(sx+ss*.42,sy-ss*.42);ctx.lineTo(sx-ss*.42,sy+ss*.42);
+    ctx.stroke();ctx.restore();};
+  [[-.5,-.15,.0],[.45,-.45,2.1],[.05,.6,4.0]].forEach(([fx,fy,ph])=>{
+    const q=Math.max(0,Math.sin(T*.0033+ph));
+    if(q>.05) star(cx+r*fx,cy+r*fy,r*(.24+.30*q),q*.9);});
+}
+
+function drawCristalNew(ctx,t,T){
+  const cx=64,cy=64,r=SIZES[t]*2.1,col=IDENT[t];
+  ctx.clearRect(0,0,128,128);
+  const pts=gemPts(cx,cy,r);
+  ctx.save(); gemPath(ctx,pts); ctx.clip();
+  const g=ctx.createLinearGradient(cx-r,cy-r,cx+r,cy+r);
+  g.addColorStop(0,rgba(mixc(col,'#ffffff',.4),.55));
+  g.addColorStop(.45,rgba(col,.30));
+  g.addColorStop(1,rgba(mixc(col,'#000000',.35),.55));
+  ctx.fillStyle=g; ctx.fillRect(0,0,128,128);
+  ctx.save();ctx.globalCompositeOperation='source-atop';ctx.fillStyle=rgba('#ffffff',.16);
+  ctx.beginPath();ctx.moveTo(cx-r*1.3,cy-r*.5);ctx.lineTo(cx-r*.3,cy-r*1.3);ctx.lineTo(cx+r*.3,cy-r*.7);ctx.lineTo(cx-r*.6,cy+r*.5);ctx.closePath();ctx.fill();
+  ctx.fillStyle=rgba('#000000',.14);
+  ctx.beginPath();ctx.moveTo(cx+r*.2,cy+r*.6);ctx.lineTo(cx+r*1.3,cy+r*.1);ctx.lineTo(cx+r*1.0,cy+r*1.2);ctx.lineTo(cx-r*.2,cy+r*1.3);ctx.closePath();ctx.fill();
+  ctx.restore();
+  const sw=((T*.00022+t.length*.15)%1.8)-.4;
+  const bx=cx-r*1.6+sw*r*3.4;
+  const g2=ctx.createLinearGradient(bx-r*.5,cy-r,bx+r*.5,cy+r);
+  g2.addColorStop(0,rgba('#ffffff',0));g2.addColorStop(.5,rgba('#ffffff',.35));g2.addColorStop(1,rgba('#ffffff',0));
+  ctx.fillStyle=g2;ctx.fillRect(0,0,128,128);
+  ctx.restore();
+  ctx.save(); ctx.strokeStyle=rgba('#ffffff',.55); ctx.lineWidth=1; gemPath(ctx,pts); ctx.stroke();
+  const inner=[];for(let k=0;k<8;k++){const a=k*Math.PI/4+Math.PI/8;inner.push([cx+Math.cos(a)*r*.5,cy+Math.sin(a)*r*.46]);}
+  ctx.strokeStyle=rgba('#ffffff',.30);
+  gemPath(ctx,inner); ctx.stroke();
+  pts.forEach((p,i)=>{const q=inner[i];ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();});
+  ctx.restore();
+  ctx.save(); ctx.fillStyle=rgba('#ffffff',.85);
+  ctx.beginPath();ctx.ellipse(cx-r*.3,cy-r*.42,r*.13,r*.06,-.6,0,6.283);ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- Cladni ---------- */
+const CLADNI_K={grave1:3,grave2:4,media1:5,media2:6,aguda:8};
+function drawCladni(ctx,t,T){
+  const cx=64,cy=64,R=SIZES[t]*2.5,col=IDENT[t],k=CLADNI_K[t];
+  ctx.clearRect(0,0,128,128);
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.18);ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx,cy,R,0,6.283);ctx.stroke();ctx.restore();
+  const rot=T*.00008;
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const pulse=.7+.3*Math.sin(T*.0015);
+  ctx.strokeStyle=rgba(col,.85*pulse);ctx.lineWidth=1.3;
+  ctx.beginPath();
+  for(let i=0;i<=260;i++){
+    const th=i/260*6.283;
+    const rr=R*Math.abs(Math.cos(k*th/2))*.92+R*.06;
+    const x=cx+Math.cos(th+rot)*rr, y=cy+Math.sin(th+rot)*rr;
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  }
+  ctx.stroke();
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R);
+  g.addColorStop(0,rgba(col,.18*pulse));g.addColorStop(1,rgba(col,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R,0,6.283);ctx.fill();
+  ctx.restore();
+  ctx.save();ctx.fillStyle=rgba('#ffffff',.7);ctx.beginPath();ctx.arc(cx,cy,1.6,0,6.283);ctx.fill();ctx.restore();
+}
+
+/* ---------- Filamento ---------- */
+function drawFilamento(ctx,t,T){
+  const cx=64,cy=64,r=SIZES[t]*2.3,col=IDENT[t];
+  ctx.clearRect(0,0,128,128);
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.22);ctx.lineWidth=1;
+  ctx.beginPath();ctx.ellipse(cx,cy,r*.72,r,0,0,6.283);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-r*.22,cy+r*1.02);ctx.lineTo(cx-r*.22,cy+r*1.28);
+  ctx.moveTo(cx+r*.22,cy+r*1.02);ctx.lineTo(cx+r*.22,cy+r*1.28);ctx.stroke();
+  ctx.restore();
+  const flick=.75+.25*Math.sin(T*.01+t.length)*Math.sin(T*.0027);
+  const n=5,pts=[];
+  for(let i=0;i<=n;i++){
+    const y=cy-r*.68+ (r*1.36)*(i/n);
+    const x=cx+(i%2===0?-1:1)*r*.36;
+    pts.push([x,y]);
+  }
+  ctx.save();ctx.beginPath();ctx.ellipse(cx,cy,r*.72,r,0,0,6.283);ctx.clip();
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=rgba(col,.28*flick);ctx.lineWidth=5;
+  ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle=rgba(mixc(col,'#ffffff',.6),.95*flick);ctx.lineWidth=1.4;
+  ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  ctx.restore();
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*1.4);
+  g.addColorStop(0,rgba(col,.30*flick));g.addColorStop(1,rgba(col,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r*1.4,0,6.283);ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- Poliedro (low-poly, flat-shaded) ---------- */
+function drawPoliedro(ctx,t,T){
+  const cx=64,cy=64,r=SIZES[t]*2.3,col=IDENT[t];
+  ctx.clearRect(0,0,128,128);
+  const n=6,outer=[];
+  for(let k=0;k<n;k++){const a=k*6.283/n-Math.PI/2;outer.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r*1.06]);}
+  const lightA=-2.3;
+  for(let k=0;k<n;k++){
+    const p1=outer[k],p2=outer[(k+1)%n];
+    const midA=Math.atan2(((p1[1]+p2[1])/2)-cy,((p1[0]+p2[0])/2)-cx);
+    let diff=Math.abs(midA-lightA); if(diff>Math.PI)diff=6.283-diff;
+    const shade=1-diff/Math.PI;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.closePath();
+    ctx.fillStyle=mixc(mixc(col,'#000000',.55),mixc(col,'#ffffff',.5),shade);
+    ctx.fill();
+  }
+  ctx.save();ctx.strokeStyle=rgba('#0a0a12',.5);ctx.lineWidth=1;
+  for(let k=0;k<n;k++){ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(outer[k][0],outer[k][1]);ctx.stroke();}
+  ctx.beginPath();outer.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.stroke();
+  ctx.restore();
+}
+
+makeRow('row-cladni',drawCladni);
+makeRow('row-filamento',drawFilamento);
+makeRow('row-poliedro',drawPoliedro);
+makeRow('row-cristal',drawCristalNew);
+
+const oldCv=document.getElementById('cv-cristal-old');
+oldCv._t='grave2'; oldCv._ctx=oldCv.getContext('2d');
+canvases.push({cv:oldCv,drawFn:drawCristalOld});
+
+function loop(T){
+  canvases.forEach(({cv,drawFn})=>drawFn(cv._ctx,cv._t,T));
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

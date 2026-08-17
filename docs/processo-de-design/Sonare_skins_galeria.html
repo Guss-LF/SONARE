@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sonare — galeria de skins</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#03060f;color:#eef1f6;
+    font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 24px 100px}
+  h1{font-weight:200;font-size:28px;letter-spacing:.1em;margin:0 0 6px}
+  .sub{font-size:13px;color:rgba(238,241,246,.5);font-weight:300;margin:0 0 56px;max-width:60ch;line-height:1.6}
+  .row{margin-bottom:56px}
+  .row-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .row-name{font-size:15px;font-weight:500;letter-spacing:.02em}
+  .row-tag{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#ffb020;
+    border:1px solid rgba(255,176,32,.5);padding:2px 7px;border-radius:10px}
+  .row-desc{font-size:12.5px;color:rgba(238,241,246,.55);font-weight:300;line-height:1.6;
+    max-width:64ch;margin:8px 0 20px}
+  .glyphs{display:flex;gap:6px;flex-wrap:wrap}
+  .g{width:100px;text-align:center}
+  canvas{width:100%;aspect-ratio:1;display:block}
+  .g .lbl{font-size:9px;color:rgba(238,241,246,.35);margin-top:4px;letter-spacing:.03em}
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid rgba(238,241,246,.12);
+    font-size:11px;color:rgba(238,241,246,.32);font-weight:300;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GALERIA DE SKINS</h1>
+  <p class="sub">Quatro ideias renderizadas com a mesma matemática de canvas do jogo (não é ilustração estática) — pra sentir o movimento antes de qualquer decisão. As duas primeiras reaproveitam o vocabulário visual que o próprio Sonare já usa (anéis de ressonância, cabos de conexão); as outras duas são reformas pontuais do que já existe.</p>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Constelação</span><span class="row-tag">nova · substitui Flor</span></div>
+    <p class="row-desc">O sino vira um pequeno mapa de pontos conectados — exatamente a mecânica do jogo (ligar sinos) repetida em miniatura dentro de cada sino. O mais "sobre o jogo" de todas as ideias.</p>
+    <div class="glyphs" id="row-const"></div>
+  </div>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Anel</span><span class="row-tag">nova</span></div>
+    <p class="row-desc">Reusa o motivo de anéis concêntricos que já aparece no toque do Sino Mestre e nas ondas de acerto. Número de anéis = capacidade do sino (grande=3, médio=2, pequeno=1) — a skin passa a <i>ensinar</i> a regra em vez de só decorar.</p>
+    <div class="glyphs" id="row-anel"></div>
+  </div>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Notas</span><span class="row-tag">reforma</span></div>
+    <p class="row-desc">Hoje as notas flutuam soltas e ficam finas demais pro círculo. Adicionando um fragmento de pauta (as linhas horizontais) e cabeças de nota maiores, a altura da nota na pauta passa a mostrar grave/agudo de verdade — de novo, decoração que também informa.</p>
+    <div class="glyphs" id="row-notas"></div>
+  </div>
+
+  <div class="row">
+    <div class="row-head"><span class="row-name">Lua</span><span class="row-tag">nova · substitui Flor</span></div>
+    <p class="row-desc">Alternativa a Constelação pra substituir Flor — 5 fases da lua são uma progressão natural (igual notas/facetas), e o clima noturno/silencioso combina mais com "ressonância" do que pétalas.</p>
+    <div class="glyphs" id="row-lua"></div>
+  </div>
+
+  <footer>
+    Cristal e Sino (padrão) não estão aqui — a proposta pra eles é ajuste, não substituição: Cristal ganha mais facetas e brilho mais dramático; Sino ganha um pouco mais de assimetria pra sair do "clip-art". Detalhes na mensagem.
+  </footer>
+</div>
+
+<script>
+'use strict';
+const IDENT={grave1:'#3D7BFF',grave2:'#9B5CFF',media1:'#23D6A0',media2:'#FFB020',aguda:'#FF3B4E'};
+const SIZES={grave1:19,grave2:19,media1:15,media2:15,aguda:11};
+const CAP={grave1:3,grave2:3,media1:2,media2:2,aguda:1};
+const ORDER=['grave1','grave2','media1','media2','aguda'];
+const hex2rgb=h=>{h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.substr(i,2),16));};
+const rgba=(h,a)=>{const c=hex2rgb(h);return`rgba(${c[0]},${c[1]},${c[2]},${a})`;};
+
+function makeRow(containerId, drawFn){
+  const box=document.getElementById(containerId);
+  ORDER.forEach(t=>{
+    const g=document.createElement('div'); g.className='g';
+    const cv=document.createElement('canvas'); cv.width=128; cv.height=128;
+    g.appendChild(cv);
+    const lbl=document.createElement('div'); lbl.className='lbl'; lbl.textContent=t;
+    g.appendChild(lbl);
+    box.appendChild(g);
+    cv._t=t; cv._ctx=cv.getContext('2d');
+    canvases.push({cv,drawFn});
+  });
+}
+const canvases=[];
+
+/* ---------- Constelação ---------- */
+function drawConst(ctx,t,T){
+  const cx=64,cy=64,r=SIZES[t]*2.2,col=IDENT[t];
+  ctx.clearRect(0,0,128,128);
+  const h=r*1.42, yb=cy+h*.52;
+  const pts=[
+    [cx-r,yb],[cx-r*.5,cy-h*.15],[cx,cy-h*.80],[cx+r*.5,cy-h*.15],[cx+r,yb],
+    [cx+r*.55,yb+h*.10],[cx,yb+h*.16],[cx-r*.55,yb+h*.10]
+  ];
+  ctx.save();ctx.strokeStyle=rgba(col,.55);ctx.lineWidth=1;ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  for(let i=0;i<pts.length;i++){
+    for(let j=i+1;j<pts.length;j++){
+      const d=Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1]);
+      if(d<r*1.05){ctx.moveTo(pts[i][0],pts[i][1]);ctx.lineTo(pts[j][0],pts[j][1]);}
+    }
+  }
+  ctx.stroke();ctx.restore();
+  pts.forEach((p,i)=>{
+    const tw=.5+.5*Math.sin(T*.0028+i*1.4);
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    const g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],5);
+    g.addColorStop(0,rgba(col,.5+.5*tw));g.addColorStop(1,rgba(col,0));
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p[0],p[1],5,0,6.283);ctx.fill();
+    ctx.restore();
+    ctx.fillStyle=rgba('#ffffff',.7+.3*tw);
+    ctx.beginPath();ctx.arc(p[0],p[1],1.3,0,6.283);ctx.fill();
+  });
+}
+
+/* ---------- Anel ---------- */
+function drawAnel(ctx,t,T){
+  const cx=64,cy=64,col=IDENT[t],n=CAP[t],base=SIZES[t]*1.05;
+  ctx.clearRect(0,0,128,128);
+  for(let i=0;i<n;i++){
+    const rad=base*(0.5+i*.62)+Math.sin(T*.0018+i*1.6)*1.2;
+    ctx.save();ctx.strokeStyle=rgba(col,.85-i*.18);ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.arc(cx,cy,rad,0,6.283);ctx.stroke();ctx.restore();
+  }
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,base*.6);
+  g.addColorStop(0,rgba(col,.9));g.addColorStop(1,rgba(col,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,base*.6,0,6.283);ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- Notas (reforma) ---------- */
+function drawNotas(ctx,t,T){
+  const cx=64,cy=64,r=SIZES[t]*1.7,col=IDENT[t];
+  ctx.clearRect(0,0,128,128);
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.18);ctx.lineWidth=1;
+  for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(cx-r*1.3,cy+i*7);ctx.lineTo(cx+r*1.3,cy+i*7);ctx.stroke();}
+  ctx.restore();
+  const dur={grave1:0,grave2:1,media1:2,media2:3,aguda:4}[t];
+  const ny=cy+[10,3,-4,-11,-18][dur]*.9;
+  ctx.save();ctx.fillStyle=rgba(col,.92);
+  ctx.beginPath();ctx.ellipse(cx,ny,7.5,5.6,-.36,0,6.283);ctx.fill();
+  ctx.restore();
+  if(dur>0){
+    ctx.save();ctx.strokeStyle=rgba(col,.92);ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(cx+6.5,ny-2);ctx.lineTo(cx+6.5,ny-30);ctx.stroke();
+    ctx.restore();
+    if(dur>=3){
+      const flags=dur-2;
+      for(let f=0;f<flags;f++){
+        ctx.save();ctx.strokeStyle=rgba(col,.85);ctx.lineWidth=1.3;
+        ctx.beginPath();ctx.moveTo(cx+6.5,ny-30+f*7);
+        ctx.bezierCurveTo(cx+14,ny-26+f*7,cx+13,ny-18+f*7,cx+7,ny-15+f*7);
+        ctx.stroke();ctx.restore();
+      }
+    }
+  }
+}
+
+/* ---------- Lua ---------- */
+function drawLua(ctx,t,T){
+  const cx=64,cy=64,r=SIZES[t]*1.9,col=IDENT[t];
+  ctx.clearRect(0,0,128,128);
+  const phase={grave1:.08,grave2:.3,media1:.5,media2:.7,aguda:.92}[t];
+  ctx.save();ctx.strokeStyle=rgba('#ffffff',.28);ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,6.283);ctx.stroke();ctx.restore();
+  ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,6.283);ctx.clip();
+  ctx.globalCompositeOperation='lighter';
+  ctx.fillStyle=rgba(col,.85);
+  const off=(phase-.5)*2*r*1.15;
+  ctx.beginPath();ctx.arc(cx+off,cy,r*1.02,0,6.283);ctx.fill();
+  ctx.restore();
+  const tw=.5+.5*Math.sin(T*.002+phase*6);
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*2.4);
+  g.addColorStop(0,rgba(col,.16+.1*tw));g.addColorStop(1,rgba(col,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r*2.4,0,6.283);ctx.fill();
+  ctx.restore();
+}
+
+makeRow('row-const',drawConst);
+makeRow('row-anel',drawAnel);
+makeRow('row-notas',drawNotas);
+makeRow('row-lua',drawLua);
+
+function loop(T){
+  canvases.forEach(({cv,drawFn})=>drawFn(cv._ctx,cv._t,T));
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

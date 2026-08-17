@@ -1,0 +1,8 @@
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+.claude/
+
+# build de teste (uso interno de desenvolvimento, nao faz parte do portfolio)
+Sonare_teste.html
