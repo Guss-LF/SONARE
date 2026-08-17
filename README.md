@@ -2,7 +2,7 @@
 
 Um quebra-cabeça sobre construir redes de ressonância: arraste sinos, conecte-os pelo alcance do som que emitem, e leve o sinal até o Sino Mestre.
 
-Feito inteiramente em **HTML5 Canvas + JavaScript puro** — um único arquivo, zero dependências, zero build step.
+Feito inteiramente em **HTML5 + JavaScript puro** — um único arquivo, zero dependências, zero build step.
 
 <p align="center">
   <img src="docs/screenshot-title.png" width="46%" alt="Tela de título do Sonare">
