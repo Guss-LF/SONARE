@@ -11,9 +11,7 @@ Feito inteiramente em **HTML5 Canvas + JavaScript puro** — um único arquivo, 
 
 ## ▶ Jogar agora
 
-**[SEU-USUARIO.github.io/SONARE](https://SEU-USUARIO.github.io/SONARE/)** — direto no navegador, sem instalar nada.
-
-*(troque `SEU-USUARIO` pelo seu usuário do GitHub depois de publicar o repositório)*
+**[guss-lf.github.io/SONARE](https://guss-lf.github.io/SONARE/)** — direto no navegador, sem instalar nada.
 
 ## O que é
 
@@ -39,7 +37,7 @@ Alguns problemas específicos que valeram a pena resolver neste projeto:
 Não precisa de servidor, build ou instalação — é um único arquivo HTML autocontido.
 
 ```bash
-git clone https://github.com/SEU-USUARIO/SONARE.git
+git clone https://github.com/Guss-LF/SONARE.git
 cd SONARE
 ```
 
